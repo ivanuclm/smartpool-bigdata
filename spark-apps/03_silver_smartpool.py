@@ -11,7 +11,7 @@ BRONZE_JDBC = f"{BRONZE}/smartpool_jdbc"
 SILVER_POOLS  = f"{SILVER}/pools_dim"
 SILVER_EVENTS = f"{SILVER}/maintenance_events"
 
-def build_latest_by_modified(df, pk="id", modified="modified"):
+def build_latest_by_modified(df, pk="id", modified="updated_at"):
     w = Window.partitionBy(pk).orderBy(F.col(modified).desc())
     return (
         df.withColumn("_rn", F.row_number().over(w))
@@ -23,8 +23,8 @@ def run(spark):
     pools = spark.read.format("delta").load(f"{BRONZE_JDBC}/pools_dim")
     events = spark.read.format("delta").load(f"{BRONZE_JDBC}/maintenance_events")
 
-    pools_latest = build_latest_by_modified(pools, pk="id", modified="modified")
-    events_latest = build_latest_by_modified(events, pk="id", modified="modified")
+    pools_latest = build_latest_by_modified(pools, pk="pool_id", modified="updated_at")
+    events_latest = build_latest_by_modified(events, pk="id", modified="updated_at")
 
     (
         pools_latest

@@ -80,8 +80,8 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--tables", default=",".join(DEFAULT_TABLES),
                   help="Comma-separated table list (default: pools_dim,maintenance_events)")
-    p.add_argument("--modified-col", default="modified")
-    p.add_argument("--pk-col", default="id")
+    p.add_argument("--modified-col", default="updated_at")
+    p.add_argument("--pk-col", default="pool_id")
     return p.parse_args()
 
 def main():

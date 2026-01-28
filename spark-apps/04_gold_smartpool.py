@@ -20,8 +20,12 @@ def run(spark):
     # Enriched events (join + simple derived fields)
     enr = (
         events.alias("e")
-        .join(pools.select("id", "pool_name", "location").alias("p"), F.col("e.pool_id") == F.col("p.id"), "left")
-        .drop(F.col("p.id"))
+        .join(
+            pools.select("pool_id", "pool_name", "location").alias("p"),
+            F.col("e.pool_id") == F.col("p.pool_id"),
+            "left",
+        )
+        .drop(F.col("p.pool_id"))
         .withColumn("gold_calc_ts", F.current_timestamp())
     )
 
@@ -35,8 +39,10 @@ def run(spark):
     cost = (
         enr.withColumn(
             "estimated_cost_eur",
-            F.when(F.col("event_type") == F.lit("repair"), F.lit(250.0))
-             .when(F.col("event_type") == F.lit("cleaning"), F.lit(80.0))
+            F.when(F.col("intervention_type") == F.lit("chlorine"), F.lit(90.0))
+             .when(F.col("intervention_type") == F.lit("ph_correction"), F.lit(70.0))
+             .when(F.col("intervention_type") == F.lit("filter_backwash"), F.lit(60.0))
+             .when(F.col("intervention_type") == F.lit("refill"), F.lit(40.0))
              .otherwise(F.lit(120.0))
         )
         .withColumn("gold_calc_ts", F.current_timestamp())
