@@ -38,7 +38,7 @@ COMMON_PACKAGES = ",".join([
 with DAG(
     dag_id="smartpool_structured_batch",
     start_date=datetime(2025, 1, 1),
-    schedule="@daily",  # macro temporal
+    schedule="0 0 * * *",  # cron
     catchup=False,
     tags=["smartpool", "batch", "structured"],
 ) as dag:

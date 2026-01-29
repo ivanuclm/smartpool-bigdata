@@ -20,7 +20,7 @@ def parse_args():
 def run(spark, target_date: str | None):
     df = spark.read.format("delta").load(SILVER_ELEC)
     if target_date:
-        df = df.filter(F.col("ingest_date") == F.lit(target_date))
+        df = df.filter(F.col("ingest_date") == F.to_date(F.lit(target_date)))
 
     if df.rdd.isEmpty():
         logger.info("No electricity data to process for target_date=%s", target_date)

@@ -33,7 +33,7 @@ JDBC_DRIVER = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
 SPARK_MASTER = os.getenv("SPARK_MASTER", "spark://spark-master:7077")
 
 # Prefer local jars (avoid Ivy downloads during execution)
-EXTRA_JARS = ",".join([
+EXTRA_JARS_LIST = [
     "/opt/spark/jars/hadoop-aws-3.4.0.jar",
     "/opt/spark/jars/hadoop-common-3.4.0.jar",
     "/opt/spark/jars/aws-java-sdk-bundle-2.23.19.jar",
@@ -45,7 +45,14 @@ EXTRA_JARS = ",".join([
     "/opt/spark/jars/spark-sql-kafka-0-10_2.13-4.0.1.jar",
     "/opt/spark/jars/spark-token-provider-kafka-0-10_2.13-4.0.1.jar",
     "/opt/spark/jars/kafka-clients-3.9.1.jar",
-])
+]
+
+# Optional resource caps (set via env to keep defaults unchanged)
+SPARK_EXECUTOR_MEMORY = os.getenv("SPARK_EXECUTOR_MEMORY")
+SPARK_EXECUTOR_CORES = os.getenv("SPARK_EXECUTOR_CORES")
+SPARK_EXECUTOR_INSTANCES = os.getenv("SPARK_EXECUTOR_INSTANCES")
+SPARK_DRIVER_MEMORY = os.getenv("SPARK_DRIVER_MEMORY")
+SPARK_CORES_MAX = os.getenv("SPARK_CORES_MAX")
 
 def create_spark(app_name: str, extra_confs: dict | None = None) -> SparkSession:
     builder = (
@@ -70,9 +77,22 @@ def create_spark(app_name: str, extra_confs: dict | None = None) -> SparkSession
         .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
         .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
 
-        # Jars
-        .config("spark.jars", EXTRA_JARS)
     )
+
+    extra_jars = [p for p in EXTRA_JARS_LIST if os.path.exists(p)]
+    if extra_jars:
+        builder = builder.config("spark.jars", ",".join(extra_jars))
+
+    if SPARK_EXECUTOR_MEMORY:
+        builder = builder.config("spark.executor.memory", SPARK_EXECUTOR_MEMORY)
+    if SPARK_EXECUTOR_CORES:
+        builder = builder.config("spark.executor.cores", SPARK_EXECUTOR_CORES)
+    if SPARK_EXECUTOR_INSTANCES:
+        builder = builder.config("spark.executor.instances", SPARK_EXECUTOR_INSTANCES)
+    if SPARK_DRIVER_MEMORY:
+        builder = builder.config("spark.driver.memory", SPARK_DRIVER_MEMORY)
+    if SPARK_CORES_MAX:
+        builder = builder.config("spark.cores.max", SPARK_CORES_MAX)
 
     if extra_confs:
         for k, v in extra_confs.items():

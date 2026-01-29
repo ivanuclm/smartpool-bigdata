@@ -1,0 +1,10 @@
+\babel@toc {spanish}{}\relax 
+\contentsline {section}{\numberline {1}Introduccion y objetivos}{3}{section.1}%
+\contentsline {section}{\numberline {2}Diseno Medallion y configuracion}{3}{section.2}%
+\contentsline {section}{\numberline {3}Pipeline 1: Ingesta estructurada batch (SQL Server)}{3}{section.3}%
+\contentsline {section}{\numberline {4}Pipeline 2: Ingesta semiestructurada batch (CSV electricidad)}{3}{section.4}%
+\contentsline {section}{\numberline {5}Pipeline 3: Ingesta streaming (Kafka)}{3}{section.5}%
+\contentsline {section}{\numberline {6}Orquestacion en Airflow}{4}{section.6}%
+\contentsline {section}{\numberline {7}Planificacion temporal}{4}{section.7}%
+\contentsline {section}{\numberline {8}Cumplimiento de requisitos}{4}{section.8}%
+\contentsline {section}{\numberline {9}Video de demostracion}{4}{section.9}%

@@ -142,7 +142,7 @@ def main():
 
     # Enrichment: join latest pools_dim (batch) to 1m aggregates (stream)
     pools_dim = spark.read.format("delta").load(f"{SILVER}/pools_dim").select(
-        F.col("id").alias("pool_id"), "pool_name", "location"
+        F.col("pool_id").alias("pool_id"), "pool_name", "location"
     )
 
     gold_enr = (

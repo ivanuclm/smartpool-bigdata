@@ -8,6 +8,10 @@ from airflow.sensors.external_task import ExternalTaskSensor
 
 SPARK_CONN_ID = "spark_default"
 
+def _map_to_daily(execution_date, **_):
+    # Align hourly runs to the daily structured batch logical date (00:00)
+    return execution_date.start_of("day")
+
 COMMON_CONF = {
     "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
     "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog",
@@ -33,7 +37,7 @@ COMMON_JARS = ",".join([
 with DAG(
     dag_id="smartpool_sensors_streaming",
     start_date=datetime(2025, 1, 1),
-    schedule="@hourly",
+    schedule="@hourly", # macro temporal
     catchup=False,
     tags=["smartpool", "streaming", "kafka"],
 ) as dag:
@@ -42,6 +46,7 @@ with DAG(
         task_id="wait_structured_batch",
         external_dag_id="smartpool_structured_batch",
         external_task_id="build_silver",
+        execution_date_fn=_map_to_daily,
         timeout=60 * 60,
         mode="reschedule",
     )

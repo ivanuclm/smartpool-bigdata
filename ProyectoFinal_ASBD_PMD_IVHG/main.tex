@@ -1,0 +1,182 @@
+\documentclass{article}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\setcounter{secnumdepth}{4}
+\input{structure.tex}
+
+\graphicspath{{images/}}
+
+\titleformat{\paragraph}
+{\normalfont\normalsize\bfseries}{\theparagraph}{1em}{}
+\titlespacing*{\paragraph}
+{0pt}{3.25ex plus 1ex minus .2ex}{1.5ex plus .2ex}
+
+\title{Proyecto Big Data}
+\subtitle{\textit{SmartPool}: Sistema de monitorización y análisis de datos en piscinas públicas}
+
+\logo{uclm_simbolo_logo_color.png}
+\authorA{Iván Vicente Hernández García de Mora}
+\degree{Máster Universitario en Ingeniería Informática}
+\year{2025/26}
+\course{Arquitectura de Sistemas Big Data | Procesamiento Masivo de Datos}
+\date{29 de enero del 2026}
+
+\titleclass{\subsubsubsection}{straight}[\subsection]
+
+\newcounter{subsubsubsection}[subsubsection]
+\renewcommand\thesubsubsubsection{\thesubsubsection.\arabic{subsubsubsection}}
+\renewcommand\theparagraph{\thesubsubsubsection.\arabic{paragraph}} % optional; useful if paragraphs are to be numbered
+
+\titleformat{\subsubsubsection}
+  {\quad\normalfont\normalsize\series\underline}{\thesubsubsubsection}{1em}{}
+\titlespacing*{\subsubsubsection}
+{0pt}{3.25ex plus 1ex minus .2ex}{1.5ex plus .2ex}
+
+\makeatletter
+\renewcommand\paragraph{\@startsection{paragraph}{5}{\z@}%
+  {3.25ex \@plus1ex \@minus.2ex}%
+  {-1em}%
+  {\normalfont\normalsize\bfseries}}
+\renewcommand\subparagraph{\@startsection{subparagraph}{6}{\parindent}%
+  {3.25ex \@plus1ex \@minus .2ex}%
+  {-1em}%
+  {\normalfont\normalsize\bfseries}}
+\def\toclevel@subsubsubsection{4}
+\def\toclevel@paragraph{5}
+\def\toclevel@paragraph{6}
+\def\l@subsubsubsection{\@dottedtocline{4}{7em}{4em}}
+\def\l@paragraph{\@dottedtocline{5}{10em}{5em}}
+\def\l@subparagraph{\@dottedtocline{6}{14em}{6em}}
+\makeatother
+
+\setcounter{secnumdepth}{4}
+
+\setcounter{tocdepth}{4}
+\begin{document}
+
+\maketitle
+
+\thispagestyle{empty}
+
+% \newpage
+
+% \tableofcontents
+
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introducción y objetivos}
+El proyecto \textit{SmartPool} se centra en construir una arquitectura Medallion (Bronze/Silver/Gold) capaz de integrar tres tipos de ingesta: datos estructurados en batch, datos semiestructurados en batch y datos en streaming. 
+
+\vspace{5mm}
+
+La idea principal es disponer de un flujo completo que cubra la captura, limpieza, enriquecimiento y analítica operativa de piscinas: calidad del agua, mantenimiento y consumo energético. 
+
+\vspace{5mm}
+
+
+Se comenzó trabajando con notebooks (\texttt{notebooks/01..07\_*.ipynb}) para validar cada fase y, una vez estabilizados los resultados, se transformaron en scripts Python ejecutables desde Airflow (\texttt{spark-apps/}).
+
+\vspace{5mm}
+
+El resultado es un sistema reproducible que automatiza ingestas, mantiene histórico en Delta y combina información batch con eventos en tiempo real.
+
+\vspace{5mm}
+
+\section{Diseño Medallion y configuración}
+La persistencia se organiza en MinIO con rutas S3A para las capas Bronze/Silver/Gold y una zona \texttt{\_state} para checkpoints de ingesta incremental.
+
+\vspace{5mm}
+
+La configuración de Spark se centraliza en \texttt{spark-apps/smartpool\_config.py} para evitar modificar múltiples archivos, incluyendo parámetros S3A, extensiones de Delta Lake, zona horaria y conexión JDBC a SQL Server. Además, se fijan valores por defecto mediante variables de entorno para facilitar despliegues consistentes. 
+
+\vspace{5mm}
+
+Para mejorar la estabilidad de ejecución, se ajustaron límites de recursos y paralelismo de los jobs lanzados desde Airflow en \texttt{docker-compose.yml}. Esto fue clave para evitar bloqueos por consumo de memoria y para mantener la ejecución concurrente de Airflow y Spark sin saturar el entorno.
+
+\vspace{5mm}
+
+\section{Pipeline 1: Ingesta estructurada batch (SQL Server)}
+\begin{itemize}
+  \item \textbf{Bronze}: \texttt{02\_ingest\_smartpool.py} lee vía JDBC e implementa ingesta incremental con un checkpoint Delta en \texttt{s3a://spark/medallion/\_state}.
+  \item \textbf{Silver}: \texttt{03\_silver\_smartpool.py} limpia y consolida la última versión por clave usando \texttt{updated\_at}.
+  \item \textbf{Gold}: \texttt{04\_gold\_smartpool.py} enriquece tareas de mantenimiento con datos de piscinas y calcula una estimación de costes.
+\end{itemize}
+Las tablas origen son \texttt{pools\_dim} y \texttt{maintenance\_events}, con las que se construye el historial operativo y de mantenimiento sobre el que se apoyan las capas Silver y Gold.
+
+\newpage
+\section{Pipeline 2: Ingesta semiestructurada batch (CSV electricidad)}
+Los CSV se generan con el productor
+\texttt{producer\_electricity\_csv.py} y se guardan en MinIO en \\
+\texttt{landing/electricity\_prices/date=YYYY-MM-DD}. El pipeline:
+\begin{itemize}
+  \item \textbf{Bronze/Silver}: \texttt{05\_ingest\_electricity\_csv.py} normaliza tipos, preserva \texttt{ingest\_date} y particiona por \texttt{date}.
+  \item \textbf{Gold}: \texttt{06\_gold\_electricity\_enrichment.py} genera estadísticas diarias y horas pico.
+\end{itemize}
+Este flujo se centra en disponer de series diarias de precios fiables para cruzarlas después con el consumo estimado de cada piscina.
+
+\vspace{5mm}
+
+\section{Pipeline 3: Ingesta streaming (Kafka)}
+El productor \texttt{producer\_smartpool\_sensors.py} envía eventos JSON al tópico \texttt{smartpool-sensors}. El job \texttt{07\_kafka\_smartpool\_sensors.py} aplica:
+\begin{itemize}
+  \item Lectura de Kafka con \texttt{startingOffsets=latest}.
+  \item Parseo de JSON a schema, \textbf{watermark} y ventanas de 1 minuto.
+  \item Escritos en Bronze/Silver y agregados Gold por ventana.
+  \item Enriquecimiento con \texttt{pools\_dim} (batch) para contexto.
+\end{itemize}
+El streaming se orienta a disponer de señales casi en tiempo real para generar agregados operativos y alertas tempranas.
+
+\vspace{5mm}
+
+\section{Orquestación en Airflow}
+Se han definido tres DAGs:
+\begin{itemize}
+  \item \textbf{dag\_10\_smartpool\_structured\_batch}: ingesta SQL Server y transformaciones Silver/Gold. Se programa con cron \texttt{0 0 * * *} y lanza el DAG de electricidad con \texttt{TriggerDagRunOperator}.
+  \item \textbf{dag\_20\_electricity\_semi\_batch}: pipeline de CSV. Incluye bifurcación con \texttt{BranchPythonOperator} y usa \textbf{XCom} (task \texttt{pick\_ingest\_date}) para pasar la fecha a los jobs Spark.
+  \item \textbf{dag\_30\_sensors\_streaming}: streaming Kafka. Usa \texttt{@hourly} como macro temporal y un \\ \texttt{ExternalTaskSensor} para esperar la disponibilidad de datos batch.
+\end{itemize}
+El encadenamiento entre DAGs y el uso de sensores permite coordinar la llegada de datos batch antes de ejecutar el streaming enriquecido.
+
+\vspace{5mm}
+
+\section{Planificación temporal}
+La ejecución batch estructurada se programa diariamente con cron (cada día a las 00:00h). El pipeline de electricidad se activa desde el DAG estructurado para mantener coherencia en la fecha de ingesta. El streaming se ejecuta de forma periódica (macro \texttt{@hourly}) con ventanas de 1 minuto y watermark de 2 minutos, dejando los agregados listos para análisis operativo y alertas.
+
+\section{Retos encontrados y soluciones}
+Algunos de los problemas encontrados son:
+\begin{itemize}
+  \item \textbf{Precisión de timestamps}: en SQL Server los tiempos se almacenaban con 7 decimales, mientras que en Delta se leían con 6, lo que hacía que algunas filas quedaran fuera en filtros incrementales. Se ajustaron conversiones y comparaciones para evitar pérdidas.
+  \item \textbf{Ingesta incremental}: la tabla \texttt{pools\_dim} no tenía inicialmente \texttt{updated\_at}, lo que impedía la incrementalidad. Se incorporó ese campo y se habilitó el checkpoint en \texttt{\_state}.
+  \item \textbf{Particiones y configuración}: se revisaron particiones y parámetros de Spark para equilibrar rendimiento y consumo de recursos, evitando bloqueos cuando Airflow y Spark coincidían en ejecución.
+  \item \textbf{Dependencias Spark (packages/jars)}: al usar \texttt{configure\_spark\_with\_delta\_pip} no se cargaban correctamente los extra jars (por ejemplo el token provider de Kafka), lo que llevó a intentar resolverlo con Ivy. Finalmente se solucionó centralizando jars locales y configuraciones.
+  \item \textbf{Recursos en Docker}: se sufrieron caídas y lentitud al ejecutar varios procesos a la vez. Para solucionarlo, se ajustó el paralelismo de Airflow (\texttt{AIRFLOW\_\_CORE\_\_PARALLELISM}, \texttt{MAX\_ACTIVE\_TASKS\_PER\_DAG}, \texttt{MAX\_ACTIVE\_RUNS\_PER\_DAG}) y se limitaron recursos de Spark desde \texttt{docker-compose.yml} (\texttt{SPARK\_EXECUTOR\_MEMORY}, \texttt{SPARK\_EXECUTOR\_CORES}, \texttt{SPARK\_EXECUTOR\_INSTANCES}, \texttt{SPARK\_DRIVER\_MEMORY}, \texttt{SPARK\_CORES\_MAX}).
+  \item \textbf{Sincronización entre DAGs}: ajustes en sensores para alinear fechas lógicas y garantizar ejecuciones encadenadas.
+\end{itemize}
+Estas correcciones permitieron estabilizar los DAGs y asegurar que los tres pipelines funcionasen de forma natural.
+
+\vspace{5mm}
+
+\section{Cumplimiento de requisitos}
+\begin{itemize}
+  \item \textbf{1.1 Macro temporal}: \texttt{dag\_30} usa \texttt{@hourly}.
+  \item \textbf{1.3 Cron}: \texttt{dag\_10} usa \texttt{0 0 * * *}.
+  \item \textbf{2.1 Bifurcación}: \texttt{BranchPythonOperator} en \texttt{dag\_20}.
+  \item \textbf{2.3 XCom/Taskflow}: \texttt{pick\_ingest\_date} pasa \texttt{ds} a tareas Spark.
+  \item \textbf{3.1 Sensor}: \texttt{ExternalTaskSensor} en \texttt{dag\_30}.
+  \item \textbf{3.2 Push/Pull entre DAGs}: \texttt{TriggerDagRunOperator} de \texttt{dag\_10} a \texttt{dag\_20}.
+  \item \textbf{PMD Medallion}: tres pipelines (batch estructurado, batch CSV y streaming Kafka) con Delta en Bronze/Silver/Gold.
+\end{itemize}
+
+\vspace{5mm}
+
+\section{Trabajo futuro}
+Como líneas de evolución, se plantea integrar fuentes externas de contexto (AEMET u Open-Meteo) para correlacionar clima y calidad del agua, ampliar el modelo energético con tarifas reales y añadir paneles de visualización y alertas. 
+
+\vspace{5mm}
+
+También se podría incorporar control de calidad automático y modelos predictivos para anticipar incidencias en piscinas con mayor carga de uso.
+
+
+\end{document}

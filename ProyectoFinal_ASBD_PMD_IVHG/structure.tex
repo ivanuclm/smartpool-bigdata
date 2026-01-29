@@ -1,0 +1,95 @@
+\usepackage[utf8]{inputenc} % For spanish language
+\usepackage[spanish]{babel}
+\usepackage[T1]{fontenc}
+
+\usepackage{graphicx} % Need for images
+\usepackage{tocloft} % Need for TOC with dots
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{pgf,tikz}
+\usepackage{float} % Allow [H] in figure for correct placement
+\usepackage{picture} % Allow braces in lists
+\usepackage{blkarray} % Allow matrix
+\usepackage{multicol} % Allow multicolumm
+\usepackage{array} % Need for change width of lines in tables
+\usepackage{amsmath} % Need for equations
+\usepackage[hidelinks]{hyperref} % For index and web links
+\usepackage{subfig}
+\usepackage[margin=1in]{geometry}
+\usepackage{wrapfig}
+% \usepackage{subcaption}
+
+\usepackage{amsthm, amssymb, amsfonts, fancyhdr, color, comment, graphicx, environ}
+\usepackage{mdframed}
+\usepackage{indentfirst}
+\usepackage[shortlabels]{enumitem}
+
+% New definitions
+\newtoks\logo
+\newtoks\authorA
+
+\newtoks\subtitle
+\newtoks\degree
+\newtoks\year
+\newtoks\course
+\newtoks\professorA
+\newtoks\professorB
+% End new definitions
+
+\setcounter{secnumdepth}{2} % Change the depth showed of each section
+
+\renewcommand{\arraystretch}{1.5} % More spaces between rows in tables
+\renewcommand{\cftsecleader}{\cftdotfill{\cftdotsep}} % Add dots in TOC
+
+
+% Redefine \maketitle
+\makeatletter
+\def\@maketitle{
+
+  \includegraphics[scale=0.7]{\the\logo}
+
+  \begin{center}
+    \let \footnote \thanks
+    \vfill
+    {\Huge \textbf{\@title}\par}
+    \vspace{5mm}
+    {\Large \textbf{\the\subtitle}\par}
+    \vfill
+    
+
+  \begin{flushright}
+    {\Large
+      \begin{tabular}[t]{l l}
+        \textbf{\underline{Autor:}}         & \the\authorA 
+                                            \vspace{0.2cm} \\ 
+        \textbf{\underline{Estudios:}}         & \the\degree \vspace{0.2cm} \\
+        \textbf{\underline{Curso:}}         & \the\year \vspace{0.2cm} \\
+        \textbf{\underline{Asignatura:}}    & \the\course \vspace{0.2cm} \\
+        \textbf{\underline{Fecha:}}         & \@date
+      \end{tabular}}
+  \end{flushright}
+
+\end{center}}
+\par
+\makeatother
+% End of redefine \maketitle
+
+
+
+\definecolor{backgroundColour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{CStyle}{
+    backgroundcolor=\color{backgroundColour},   
+    basicstyle=\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    language=C
+}
